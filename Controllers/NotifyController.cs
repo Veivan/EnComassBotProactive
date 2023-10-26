@@ -27,16 +27,12 @@ namespace Microsoft.BotBuilderSamples.Controllers
     [ApiController]
     public class NotifyController : ControllerBase
     {
-        private readonly IBot _bot;
-        private readonly IBotFrameworkHttpAdapter _adapter;
         private readonly string _appId;
         private readonly string _appPassword;
-        private List<TeamsChannelAccount> _members; // = new List<TeamsChannelAccount>();
+        private List<TeamsChannelAccount> _members; 
 
-        public NotifyController(IBotFrameworkHttpAdapter adapter, IConfiguration configuration, IBot bot, List<TeamsChannelAccount> members)
+        public NotifyController(IConfiguration configuration, List<TeamsChannelAccount> members)
         {
-            _adapter = adapter;
-            _bot = bot;
             _appId = configuration["MicrosoftAppId"] ?? string.Empty;
             _appPassword = configuration["MicrosoftAppPassword"] ?? string.Empty;
             _members = members;
