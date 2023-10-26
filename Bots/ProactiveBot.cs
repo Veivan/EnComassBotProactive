@@ -27,16 +27,18 @@ namespace Microsoft.BotBuilderSamples
         private const string WelcomeMessage = "Welcome to the Proactive Bot sample.  Navigate to http://localhost:3978/api/notify to proactively message everyone who has previously messaged this bot.";
 
         private ConcurrentDictionary<string, ConversationReference> _conversationReferences = new ConcurrentDictionary<string, ConversationReference>();
-        private List<TeamsChannelAccount> _members = new List<TeamsChannelAccount>();
+        private List<TeamsChannelAccount> _members; // = new List<TeamsChannelAccount>();
         private readonly string _appId;
         private readonly string _appPassword;
         private readonly string _tenantId;
 
-        public ProactiveBot(IConfiguration configuration)
+        public ProactiveBot(IConfiguration configuration, List<TeamsChannelAccount> members)
         {
             _appId = configuration["MicrosoftAppId"] ?? string.Empty;
             _appPassword = configuration["MicrosoftAppPassword"] ?? string.Empty;
             _tenantId = configuration["MicrosoftAppTenantId"] ?? string.Empty;
+
+            _members = members;
         }
 
         private void AddConversationReference(Activity activity)
@@ -74,7 +76,13 @@ namespace Microsoft.BotBuilderSamples
 
         protected override async Task OnInstallationUpdateActivityAsync(ITurnContext<IInstallationUpdateActivity> turnContext, CancellationToken cancellationToken)
         {
-             string continuationToken = null;
+             var botMember = new TeamsChannelAccount()
+            {
+                Id = turnContext.Activity.Recipient.Id,
+                Name = turnContext.Activity.Recipient.Name
+            };
+            _members.Add(botMember);
+            string continuationToken = null;
 
             do
             {
@@ -90,6 +98,13 @@ namespace Microsoft.BotBuilderSamples
         {
             var result = member.UserPrincipalName.ToLower() == upn.ToLower();
             return result;
+        }
+
+        public async Task<TeamsChannelAccount> GetTeamMember(string upn)
+        {
+
+            TeamsChannelAccount member = _members.FirstOrDefault(m => IsEqual(m, upn));
+            return member;
         }
 
         public async Task<ConversationReference> GetConversation(string upn)
@@ -123,37 +138,37 @@ namespace Microsoft.BotBuilderSamples
 
             var connectorClient = new ConnectorClient(new Uri(serviceUrl));
 
- /*           var parameters = new ConversationParameters
-            {
-                Bot = new ChannelAccount(botId, botName),
-                Members = new ChannelAccount[] { new ChannelAccount(teamsChannelId) },
-                ChannelData = new TeamsChannelData
-                {
-                    Tenant = new TenantInfo(_tenantId)
-                }
-            };
+            /*           var parameters = new ConversationParameters
+                       {
+                           Bot = new ChannelAccount(botId, botName),
+                           Members = new ChannelAccount[] { new ChannelAccount(teamsChannelId) },
+                           ChannelData = new TeamsChannelData
+                           {
+                               Tenant = new TenantInfo(_tenantId)
+                           }
+                       };
 
-            try
-            {
-                var conversationResource = await connectorClient.Conversations.CreateConversationAsync(parameters);
-                conversationResource.ActivityId
+                       try
+                       {
+                           var conversationResource = await connectorClient.Conversations.CreateConversationAsync(parameters);
+                           conversationResource.ActivityId
 
-                IMessageActivity message = null;
+                           IMessageActivity message = null;
 
-                if (conversationResource != null)
-                {
-                    message = Activity.CreateMessageActivity();
-                    message.From = new ChannelAccount(botId, botName);
-                    message.Conversation = new ConversationAccount(id: conversationResource.Id.ToString());
-                    message.Text = Strings.Send1on1Prompt;
-                }
+                           if (conversationResource != null)
+                           {
+                               message = Activity.CreateMessageActivity();
+                               message.From = new ChannelAccount(botId, botName);
+                               message.Conversation = new ConversationAccount(id: conversationResource.Id.ToString());
+                               message.Text = Strings.Send1on1Prompt;
+                           }
 
-                await connectorClient.Conversations.SendToConversationAsync((Activity)message);
-            }
-            catch (Exception ex)
-            {
+                           await connectorClient.Conversations.SendToConversationAsync((Activity)message);
+                       }
+                       catch (Exception ex)
+                       {
 
-            } */
+                       } */
 
             /*            var conversationParameters = new ConversationParameters
                         {

@@ -34,7 +34,7 @@ namespace Microsoft.BotBuilderSamples
             // Create a global hashset for our ConversationReferences
 //            services.AddSingleton<ConcurrentDictionary<string, ConversationReference>>();
 
-//            services.AddSingleton<List<TeamsChannelAccount>>();
+            services.AddSingleton<List<TeamsChannelAccount>>();
 
             // Create the bot as a transient. In this case the ASP Controller is expecting an IBot.
             services.AddTransient<IBot, ProactiveBot>();
