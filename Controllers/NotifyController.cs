@@ -53,18 +53,15 @@ namespace Microsoft.BotBuilderSamples.Controllers
             var botId = _members.First().Id;
             var botName = _members.First().Name;
 
-            //TeamsChannelAccount teamMember = await bot.GetTeamMember(inpMessage.UPN);
             TeamsChannelAccount teamMember = _members.FirstOrDefault(m => IsEqual(m, inpMessage.UPN));
 
-            //var teamsChannelId = teamMember.Id;
             var serviceUrl = "https://smba.trafficmanager.net/teams/";
             var credentials = new MicrosoftAppCredentials(_appId, _appPassword);
 
-            var proactiveMessage = MessageFactory.Text($"Hello {teamMember.GivenName} {teamMember.Surname}. I'm a Teams conversation bot.");
-
             var connectorClient = new ConnectorClient(new Uri(serviceUrl), credentials);
-
             var botAcc = new ChannelAccount(botId, botName);
+            var userAcc = new ChannelAccount(teamMember.Id, teamMember.UserPrincipalName);
+
             var parameters = new ConversationParameters
             {
                 Bot = botAcc,
@@ -75,11 +72,9 @@ namespace Microsoft.BotBuilderSamples.Controllers
                 }
             };
 
-            var userAcc = new ChannelAccount(teamMember.Id, teamMember.UserPrincipalName);
             try
             {
                 var conversationResource = await connectorClient.Conversations.CreateConversationAsync(parameters);
-                //var conversationResource = connectorClient.Conversations.CreateDirectConversation(botAcc, userAcc);
 
                 IMessageActivity message = null;
 
@@ -91,31 +86,28 @@ namespace Microsoft.BotBuilderSamples.Controllers
                     message.Text = inpMessage.NotificationText;
                 }
 
-                await connectorClient.Conversations.SendToConversationAsync((Activity)message);
+                if (inpMessage.Send)
+                {
+                    await connectorClient.Conversations.SendToConversationAsync((Activity)message);
+                }
+
+                // Let the caller know proactive messages have been sent
+                return new ContentResult()
+                {
+                    Content = $"<html><body><h1>Proactive messages have been sent to {teamMember.UserPrincipalName}.</h1></body></html>",
+                    ContentType = "text/html",
+                    StatusCode = (int)HttpStatusCode.OK,
+                };
             }
             catch (Exception ex)
             {
-
+                return new ContentResult()
+                {
+                    Content = $"<html><body><h1>{ex.Message}</h1></body></html>",
+                    ContentType = "text/html",
+                    StatusCode = (int)HttpStatusCode.BadRequest,
+                };
             }
-
-            /*            var conversationReference = await ((ProactiveBot)_bot).GetConversation(message.UPN);
-                        if (conversationReference != null)
-                        {
-                            await ((BotAdapter)_adapter).ContinueConversationAsync(_appId, conversationReference, BotCallback, default(CancellationToken));
-                        } */
-
-            // Let the caller know proactive messages have been sent
-            return new ContentResult()
-            {
-                Content = "<html><body><h1>Proactive messages have been sent.</h1></body></html>",
-                ContentType = "text/html",
-                StatusCode = (int)HttpStatusCode.OK,
-            };
-        }
-
-        private async Task BotCallback(ITurnContext turnContext, CancellationToken cancellationToken)
-        {
-            await turnContext.SendActivityAsync("proactive hello");
         }
     }
 }
