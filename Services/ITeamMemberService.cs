@@ -7,10 +7,10 @@ namespace ProactiveBot.Services
     public interface ITeamMemberService
     {
 
-        Task<bool> AddTeamMemberListAsync(IList<TeamMember> memberList); 
+        Task AddTeamMemberListAsync(IList<TeamMemberInfo> memberList);
 
-        Task<TeamMember> AddTeamMemberAsync(TeamMember member); // POST New TeamMember
-        
-        Task<TeamMember> GetTeamMemberAsync(string id); // GET Single TeamMember
+        Task<TeamMemberInfo> FindTeamMemberAsync(string prefix);
+
+        Task<TeamMemberInfo> GetTeamMemberAsync(string upn); // GET Single TeamMember
     }
 }

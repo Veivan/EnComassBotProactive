@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Integration.AspNet.Core;
 using Microsoft.Bot.Builder.Teams;
@@ -20,6 +21,7 @@ using Microsoft.Bot.Schema;
 using Microsoft.Bot.Schema.Teams;
 using Microsoft.BotBuilderSamples.Models;
 using Microsoft.Extensions.Configuration;
+using ProactiveBot.Services;
 
 namespace Microsoft.BotBuilderSamples.Controllers
 {
@@ -29,13 +31,19 @@ namespace Microsoft.BotBuilderSamples.Controllers
     {
         private readonly string _appId;
         private readonly string _appPassword;
-        private List<TeamsChannelAccount> _members; 
+        private readonly string _tenantId;
+        // private List<TeamsChannelAccount> _members;
+        private readonly string _botIDprefix;
+        private readonly ITeamMemberService _teamMemberService;
 
-        public NotifyController(IConfiguration configuration, List<TeamsChannelAccount> members)
+        public NotifyController(IConfiguration configuration, ITeamMemberService teamMemberService)
         {
             _appId = configuration["MicrosoftAppId"] ?? string.Empty;
             _appPassword = configuration["MicrosoftAppPassword"] ?? string.Empty;
-            _members = members;
+            _tenantId = configuration["MicrosoftAppTenantId"] ?? string.Empty;
+            //_members = members;
+            _botIDprefix = configuration["BotIDprefix"] ?? string.Empty; ;
+            _teamMemberService = teamMemberService;
         }
 
         private bool IsEqual(TeamsChannelAccount member, string upn)
@@ -46,17 +54,28 @@ namespace Microsoft.BotBuilderSamples.Controllers
 
         public async Task<IActionResult> PostAsync([FromBody] NotificationModel inpMessage, CancellationToken cancellationToken = default)
         {
-            var botId = _members.First().Id;
-            var botName = _members.First().Name;
+            var botMember = await _teamMemberService.FindTeamMemberAsync(_botIDprefix);
+            if (botMember == null)
+            {
+                string mess = "Bot member not found";
+                return FormatResult(mess);
+            }
 
-            TeamsChannelAccount teamMember = _members.FirstOrDefault(m => IsEqual(m, inpMessage.UPN));
+            var teamMember = await _teamMemberService.GetTeamMemberAsync(inpMessage.UPN);
+
+            if (teamMember == null)
+            {
+                string mess = $"Team member {inpMessage.UPN} not found";
+                return FormatResult(mess);
+            }
+
+            //TeamsChannelAccount teamMember = _members.FirstOrDefault(m => IsEqual(m, inpMessage.UPN));
 
             var serviceUrl = "https://smba.trafficmanager.net/teams/";
             var credentials = new MicrosoftAppCredentials(_appId, _appPassword);
 
             var connectorClient = new ConnectorClient(new Uri(serviceUrl), credentials);
-            var botAcc = new ChannelAccount(botId, botName);
-            var userAcc = new ChannelAccount(teamMember.Id, teamMember.UserPrincipalName);
+            var botAcc = new ChannelAccount(botMember.Id, botMember.Name);
 
             var parameters = new ConversationParameters
             {
@@ -64,7 +83,7 @@ namespace Microsoft.BotBuilderSamples.Controllers
                 Members = new ChannelAccount[] { new ChannelAccount(teamMember.Id) },
                 ChannelData = new TeamsChannelData
                 {
-                    Tenant = new TenantInfo(teamMember.TenantId)
+                    Tenant = new TenantInfo(_tenantId)
                 }
             };
 
@@ -90,20 +109,26 @@ namespace Microsoft.BotBuilderSamples.Controllers
                 // Let the caller know proactive messages have been sent
                 return new ContentResult()
                 {
-                    Content = $"<html><body><h1>Proactive messages have been sent to {teamMember.UserPrincipalName}.</h1></body></html>",
+                    Content = $"<html><body><h1>Proactive messages have been sent to {teamMember.Name}.</h1></body></html>",
                     ContentType = "text/html",
                     StatusCode = (int)HttpStatusCode.OK,
                 };
             }
             catch (Exception ex)
             {
-                return new ContentResult()
-                {
-                    Content = $"<html><body><h1>{ex.Message}</h1></body></html>",
-                    ContentType = "text/html",
-                    StatusCode = (int)HttpStatusCode.BadRequest,
-                };
+                return FormatResult(ex.Message);
             }
         }
+
+        private ContentResult FormatResult(string message)
+        {
+            return new ContentResult()
+            {
+                Content = $"<html><body><h1>{message}</h1></body></html>",
+                ContentType = "text/html",
+                StatusCode = (int)HttpStatusCode.BadRequest,
+            };
+        }
+
     }
 }

@@ -28,10 +28,12 @@ namespace Microsoft.BotBuilderSamples
                 options.SerializerSettings.MaxDepth = HttpHelper.BotMessageSerializerSettings.MaxDepth;
             });
 
-            services.AddDbContext<TeamMemberContext>(options =>
+            services.AddDbContext<TeamMemberContext>();
+
+ //           services.AddDbContext<TeamMemberContext>(options =>
             //options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
             //options.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=CatalogServ;Trusted_Connection=True;"));
-            options.UseInMemoryDatabase("TeamMemberService"));
+ //           options.UseInMemoryDatabase("TeamMemberService"));
 
             services.AddTransient<ITeamMemberService, TeamMemberService>();
 
@@ -41,7 +43,7 @@ namespace Microsoft.BotBuilderSamples
             // Create the Bot Adapter with error handling enabled.
             services.AddSingleton<IBotFrameworkHttpAdapter, AdapterWithErrorHandler>();
 
-            services.AddSingleton<List<TeamsChannelAccount>>();
+            //services.AddSingleton<List<TeamsChannelAccount>>();
 
             // Create the bot as a transient. In this case the ASP Controller is expecting an IBot.
             services.AddTransient<IBot, ProactiveBot>();

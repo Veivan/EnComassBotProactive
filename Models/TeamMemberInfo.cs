@@ -2,10 +2,10 @@
 
 namespace ProactiveBot.Models
 {
-    public class TeamMember
+    public class TeamMemberInfo
     {
         [Key]
         public string Id { get; set; } // UserPrincipalName, UPN
-        public string? Name { get; set; }
+        public string Name { get; set; }
     }
 }

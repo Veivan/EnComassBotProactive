@@ -1,20 +1,14 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.JsonPatch.Internal;
-using Microsoft.Bot.Builder;
-using Microsoft.Bot.Builder.Integration.AspNet.Core;
+﻿using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Teams;
-using Microsoft.Bot.Connector;
-using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Bot.Schema;
 using Microsoft.Bot.Schema.Teams;
 using Microsoft.Extensions.Configuration;
-using Microsoft.VisualBasic;
+using ProactiveBot.Services;
+using ProactiveBot.Models;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Microsoft.BotBuilderSamples
 {
@@ -23,25 +17,34 @@ namespace Microsoft.BotBuilderSamples
         // Message to send to users when the bot receives a Conversation Update event
         private const string WelcomeMessage = "Welcome to the EncCompass Proactive Bot.";
 
-        //  Navigate to http://localhost:3978/api/notify to proactively message everyone who has previously messaged this bot.
+        //  Navigate to http://localhost:3978/api/notify to proactively message everyone who has previously messaged this bot.        
 
-        private List<TeamsChannelAccount> _members;
+        private readonly ITeamMemberService _teamMemberService;
 
-        public ProactiveBot(List<TeamsChannelAccount> members)
+        private readonly string _botIDprefix;
+
+        public ProactiveBot(IConfiguration configuration, ITeamMemberService teamMemberService)
         {
-            _members = members;
+            _botIDprefix = configuration["BotIDprefix"] ?? string.Empty; ;
+            _teamMemberService = teamMemberService;
         }
 
         protected override async Task OnMembersAddedAsync(IList<ChannelAccount> membersAdded, ITurnContext<IConversationUpdateActivity> turnContext, CancellationToken cancellationToken)
         {
-            foreach (var member in membersAdded)
+            //foreach (var member in membersAdded)
+            //{
+            //    // Greet anyone that was not the target (recipient) of this message.
+            //    if (member.Id != turnContext.Activity.Recipient.Id)
+            //    {
+            //        await turnContext.SendActivityAsync(MessageFactory.Text(WelcomeMessage), cancellationToken);
+            //    }
+            //}
+
+            await _teamMemberService.AddTeamMemberListAsync((IList<TeamMemberInfo>)membersAdded.Select(x => new TeamMemberInfo()
             {
-                // Greet anyone that was not the target (recipient) of this message.
-                if (member.Id != turnContext.Activity.Recipient.Id)
-                {
-                    await turnContext.SendActivityAsync(MessageFactory.Text(WelcomeMessage), cancellationToken);
-                }
-            }
+                Id = x.Id,
+                Name = x.Name
+            }));
         }
 
         protected override async Task OnMessageActivityAsync(ITurnContext<IMessageActivity> turnContext, CancellationToken cancellationToken)
@@ -52,12 +55,8 @@ namespace Microsoft.BotBuilderSamples
 
         protected override async Task OnInstallationUpdateActivityAsync(ITurnContext<IInstallationUpdateActivity> turnContext, CancellationToken cancellationToken)
         {
-            var botMember = new TeamsChannelAccount()
-            {
-                Id = turnContext.Activity.Recipient.Id,
-                Name = turnContext.Activity.Recipient.Name
-            };
-            _members.Add(botMember);
+            var channels = new List<TeamsChannelAccount>();
+            
             string continuationToken = null;
 
             do
@@ -65,9 +64,22 @@ namespace Microsoft.BotBuilderSamples
                 // Gets a paginated list of members of one-on-one, group, or team conversation.
                 var currentPage = await TeamsInfo.GetPagedMembersAsync(turnContext, 100, continuationToken, cancellationToken);
                 continuationToken = currentPage.ContinuationToken;
-                _members.AddRange(currentPage.Members);
+                channels.AddRange(currentPage.Members);
             }
             while (continuationToken != null);
+
+            List<TeamMemberInfo> members = channels.Select(x => new TeamMemberInfo()
+            { Id = x.Id, Name = x.UserPrincipalName }).ToList();
+
+            var botMember = new TeamMemberInfo()
+            {
+                Id = _botIDprefix + turnContext.Activity.Recipient.Id,
+                Name = turnContext.Activity.Recipient.Name
+            };
+            members.Add(botMember);
+
+            await _teamMemberService.AddTeamMemberListAsync(members);
+
         }
     }
 
